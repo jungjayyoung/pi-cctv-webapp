@@ -1,7 +1,7 @@
 from ultralytics import YOLO
 
 # 가벼운 모델. 처음 실행할 때 자동 다운로드됨
-model = YOLO("yolov8n.pt")
+model = YOLO("yolov8s.pt")
 
 def detect_objects(frame):
     results = model(frame, verbose=False)
