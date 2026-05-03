@@ -5,7 +5,11 @@ from cctv_system import CCTVSystem
 from firebase_notifier import save_token, send_push_notification
 from datetime import datetime
 
-app = Flask(__name__)
+app = Flask(
+    __name__,
+    static_folder="../static",
+    static_url_path="/static"
+)
 
 LOG_DIR = "logs"
 ACCESS_LOG_FILE = os.path.join(LOG_DIR, "access.log")
