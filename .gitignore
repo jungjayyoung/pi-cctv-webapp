@@ -7,3 +7,4 @@ captures/
 firebase-service-account.json
 fcm_tokens.json
 logs/
+*.deb

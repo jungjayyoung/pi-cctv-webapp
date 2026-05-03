@@ -30,6 +30,9 @@ class CCTVSystem:
         self.alert_count = 0
         self.streaming_active = True
 
+        self.frame_count = 0
+        self.last_people = []
+
         os.makedirs(self.capture_dir, exist_ok=True)
 
     def save_capture(self, frame):
@@ -101,7 +104,13 @@ class CCTVSystem:
             if not success:
                 break
 
-            people = detect_people(frame)
+            # 7프레임에 1번만 감지
+            self.frame_count += 1
+
+            if self.frame_count % 7 == 0:
+                self.last_people = detect_people(frame)
+            else:
+                people = self.last_people
 
             if len(people) > 0:
                 self.handle_person_detected(frame)
@@ -109,6 +118,8 @@ class CCTVSystem:
             self.draw_people_boxes(frame, people)
 
             if self.streaming_active:
+		#스트리밍용 해상도 축소
+                frame = cv2.resize(frame,(480,270))
                 _, buffer = cv2.imencode(".jpg", frame)
                 frame_bytes = buffer.tobytes()
 
