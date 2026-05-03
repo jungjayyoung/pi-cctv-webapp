@@ -1,25 +1,150 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>CCTV</title>
+    <title>Smart CCTV</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            color: #222;
+        }
+
+        header {
+            background: #111827;
+            color: white;
+            padding: 18px 24px;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 24px auto;
+            padding: 0 16px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 14px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        .section-title {
+            margin-top: 0;
+            font-size: 20px;
+        }
+
+        .video-box img {
+            width: 100%;
+            max-width: 720px;
+            border-radius: 12px;
+            border: 2px solid #e5e7eb;
+            background: #111;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-weight: bold;
+            font-size: 14px;
+            background: #e5e7eb;
+        }
+
+        .status.active {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status.idle {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .capture-img {
+            width: 100%;
+            max-width: 420px;
+            border-radius: 12px;
+            border: 2px solid #e5e7eb;
+            margin-top: 12px;
+        }
+
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 10px 16px;
+            font-size: 15px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        .info {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        @media (max-width: 600px) {
+            header h1 {
+                font-size: 20px;
+            }
+
+            .card {
+                padding: 16px;
+            }
+        }
+    </style>
 </head>
+
 <body>
-    <h1>Live Camera</h1>
-    <!-- <img src="{{ url_for('video') }}"> -->
-    <button onclick="startVideo()">영상 보기</button>
-    <button onclick="stopVideo()">영상 끄기</button>
+    <header>
+        <h1>📷 Smart CCTV</h1>
+    </header>
 
-    <img id="video" width="500">
+    <main class="container">
+        <section class="card">
+            <h2 class="section-title">Live Camera</h2>
+            <p>
+                현재 상태:
+                <span id="streamStatus" class="status idle">대기 중</span>
+            </p>
 
-    <h2>Last Detection</h2>
-    <p id="time">No detection yet</p>
-    <img id="capture" width="300">
+            <div class="video-box">
+                <img id="video" src="{{ url_for('video') }}" alt="Live Camera">
+            </div>
+        </section>
 
-    <br><br>
+        <section class="card">
+            <h2 class="section-title">🚨 Last Detection</h2>
+            <p class="info">최근 사람 감지 시간</p>
+            <p id="time">No detection yet</p>
 
-    <button onclick="requestNotificationPermission()">
-        Enable Browser Notification
-    </button>
+            <img id="capture" class="capture-img" style="display:none;">
+        </section>
+
+        <section class="card">
+            <h2 class="section-title">🔔 Notification</h2>
+            <p class="info">
+                사람 감지 시 브라우저/Firebase 푸시 알림을 받을 수 있습니다.
+            </p>
+
+            <button onclick="requestNotificationPermission()">
+                알림 허용
+            </button>
+        </section>
+    </main>
 
     <script>
         let lastAlertCount = 0;
@@ -38,10 +163,21 @@
             const res = await fetch("/status");
             const data = await res.json();
 
+            const statusBadge = document.getElementById("streamStatus");
+
+            if (data.streaming) {
+                statusBadge.innerText = "감시 중";
+                statusBadge.className = "status active";
+            } else {
+                statusBadge.innerText = "대기 중";
+                statusBadge.className = "status idle";
+            }
+
             if (data.last_capture) {
                 document.getElementById("capture").src =
-                    "/captures/" + data.last_capture.split("/").pop();
+                    "/captures/" + data.last_capture;
 
+                document.getElementById("capture").style.display = "block";
                 document.getElementById("time").innerText = data.time;
             }
 
@@ -57,17 +193,8 @@
         }
 
         setInterval(fetchStatus, 2000);
-
-        function startVideo() {
-            document.getElementById("video").src = "/video";
-        }
-
-        function stopVideo() {
-            document.getElementById("video").src = "";
-        }
     </script>
 
-  
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
         import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-messaging.js";
@@ -85,13 +212,12 @@
         const app = initializeApp(firebaseConfig);
         const messaging = getMessaging(app);
 
-      
         async function initFirebaseMessaging() {
             try {
                 const permission = await Notification.requestPermission();
 
                 if (permission !== "granted") {
-                    alert("알림 권한이 허용되지 않았습니다.");
+                    console.log("알림 권한이 허용되지 않았습니다.");
                     return;
                 }
 
@@ -99,7 +225,7 @@
                     "/static/firebase-messaging-sw.js"
                 );
 
-                console.log("Service Worker registered:", registration);
+                await navigator.serviceWorker.ready;
 
                 const token = await getToken(messaging, {
                     vapidKey: "BJuea2XTDrPwzcpmGNLPBPl0cUHGu5mTEpoP6JebYYicKnCznthsyLumjwN6QV2Fe2NUtDmHUxgxz1gne349ksg",
@@ -107,7 +233,7 @@
                 });
 
                 if (!token) {
-                    alert("FCM 토큰을 가져오지 못했습니다.");
+                    console.log("FCM 토큰을 가져오지 못했습니다.");
                     return;
                 }
 
@@ -121,11 +247,10 @@
                     body: JSON.stringify({ token })
                 });
 
-                alert("Firebase 푸시 등록 완료");
+                console.log("Firebase 푸시 등록 완료");
 
             } catch (error) {
                 console.error("Firebase Push Error:", error);
-                alert("Firebase Push Error: " + error.message);
             }
         }
 
@@ -139,8 +264,5 @@
             initFirebaseMessaging();
         });
     </script>
-    
 </body>
 </html>
-
-

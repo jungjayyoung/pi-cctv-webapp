@@ -12,10 +12,7 @@ if not firebase_admin._apps:
 
 
 def save_token(token):
-    tokens = load_tokens()
-
-    if token not in tokens:
-        tokens.append(token)
+    tokens = [token]
 
     with open(TOKEN_FILE, "w", encoding="utf-8") as f:
         json.dump(tokens, f, indent=2)
@@ -36,14 +33,15 @@ def send_push_notification(title, body):
         print("[FCM] No tokens saved.")
         return
 
-    for token in tokens:
-        message = messaging.Message(
-            notification=messaging.Notification(
-                title=title,
-                body=body,
-            ),
-            token=token,
-        )
+    token = tokens[0]  # 1개만 사용
 
-        response = messaging.send(message)
-        print("[FCM] Sent:", response)
+    message = messaging.Message(
+        notification=messaging.Notification(
+            title=title,
+            body=body,
+        ),
+        token=token,
+    )
+
+    response = messaging.send(message)
+    print("[FCM] Sent:", response)

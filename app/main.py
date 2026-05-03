@@ -10,22 +10,32 @@ from firebase_notifier import save_token, send_push_notification
 
 app = Flask(__name__)
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CAPTURE_DIR = os.path.join(BASE_DIR, "captures")
+
 cap = cv2.VideoCapture(0)
 
 last_alert_time = 0
 ALERT_COOLDOWN = 10  # 10초에 한 번만 이벤트 발생
 alert_count = 0
 
+last_detect_time = time.time()
+
 last_capture_file = None
 last_capture_time = None
 
+
+streaming_active = True
+
 def save_capture(frame):
-    os.makedirs("captures", exist_ok=True)
+    os.makedirs(CAPTURE_DIR, exist_ok=True)
 
     now = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"captures/person_{now}.jpg"
+    filename = f"person_{now}.jpg"
 
-    cv2.imwrite(filename, frame)
+    filepath = os.path.join(CAPTURE_DIR, filename)
+    cv2.imwrite(filepath, frame)
+
     return filename
 
 
@@ -36,12 +46,20 @@ def handle_person_detected(frame):
 
     global alert_count
 
+    global streaming_active
+
+    global last_detect_time
+
     current_time = time.time()
+
+    
 
     if current_time - last_alert_time < ALERT_COOLDOWN:
         return
 
     last_alert_time = current_time
+    last_detect_time = current_time
+    streaming_active = True
 
     filename = save_capture(frame)
 
@@ -50,9 +68,11 @@ def handle_person_detected(frame):
 
     alert_count += 1
 
+    streaming_active = True
+
     print(f"[ALERT] Person detected! Saved: {filename}")
 
-   
+
     send_push_notification(
         "CCTV Alert",
         "사람이 감지되었습니다!"
@@ -60,12 +80,18 @@ def handle_person_detected(frame):
 
 
 def generate_frames():
+    global streaming_active, last_detect_time
+
+    
+
     while True:
+        if time.time() - last_detect_time > 10:
+            streaming_active = False
         success, frame = cap.read()
 
         if not success:
             break
-
+        
         people = detect_people(frame)
 
         for x1, y1, x2, y2, confidence in people:
@@ -85,13 +111,16 @@ def generate_frames():
         if len(people) > 0:
             handle_person_detected(frame)
 
-        _, buffer = cv2.imencode(".jpg", frame)
-        frame = buffer.tobytes()
+        if streaming_active:
+            _, buffer = cv2.imencode(".jpg", frame)
+            frame = buffer.tobytes()
 
-        yield (
-            b"--frame\r\n"
-            b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n"
-        )
+            yield (
+                b"--frame\r\n"
+                b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n"
+            )
+        else:
+            time.sleep(0.1)  # CPU 낭비 방지
 
 
 @app.route("/")
@@ -112,13 +141,14 @@ def status():
     return {
         "last_capture": last_capture_file,
         "time": last_capture_time,
-        "alert_count": alert_count
+        "alert_count": alert_count,
+        "streaming": streaming_active
     }
 
 
 @app.route('/captures/<path:filename>')
 def serve_capture(filename):
-    return send_from_directory('../captures', filename)
+    return send_from_directory(CAPTURE_DIR, filename)
 
 
 @app.route("/save-token", methods=["POST"])
