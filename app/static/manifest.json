@@ -1,0 +1,8 @@
+{
+    "name": "CCTV App",
+    "short_name": "CCTV",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#000000"
+  }

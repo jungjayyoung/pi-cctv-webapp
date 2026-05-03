@@ -5,6 +5,8 @@ import os
 from datetime import datetime
 from detector import detect_people
 from flask import send_from_directory
+from flask import request
+from firebase_notifier import save_token, send_push_notification
 
 app = Flask(__name__)
 
@@ -12,7 +14,10 @@ cap = cv2.VideoCapture(0)
 
 last_alert_time = 0
 ALERT_COOLDOWN = 10  # 10초에 한 번만 이벤트 발생
+alert_count = 0
 
+last_capture_file = None
+last_capture_time = None
 
 def save_capture(frame):
     os.makedirs("captures", exist_ok=True)
@@ -29,6 +34,8 @@ def handle_person_detected(frame):
 
     global last_capture_file, last_capture_time
 
+    global alert_count
+
     current_time = time.time()
 
     if current_time - last_alert_time < ALERT_COOLDOWN:
@@ -41,7 +48,15 @@ def handle_person_detected(frame):
     last_capture_file = filename
     last_capture_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+    alert_count += 1
+
     print(f"[ALERT] Person detected! Saved: {filename}")
+
+   
+    send_push_notification(
+        "CCTV Alert",
+        "사람이 감지되었습니다!"
+    )
 
 
 def generate_frames():
@@ -96,13 +111,36 @@ def video():
 def status():
     return {
         "last_capture": last_capture_file,
-        "time": last_capture_time
+        "time": last_capture_time,
+        "alert_count": alert_count
     }
 
 
 @app.route('/captures/<path:filename>')
 def serve_capture(filename):
     return send_from_directory('../captures', filename)
+
+
+@app.route("/save-token", methods=["POST"])
+def save_fcm_token():
+    data = request.get_json()
+    token = data.get("token")
+
+    if not token:
+        return {"success": False, "message": "No token"}, 400
+
+    save_token(token)
+
+    return {"success": True}
+
+
+@app.route("/test-push")
+def test_push():
+    send_push_notification(
+        "CCTV Test",
+        "Firebase 푸시 테스트입니다."
+    )
+    return {"success": True}
 
 if __name__ == "__main__":
     app.run(debug=True)
