@@ -200,10 +200,11 @@
         setInterval(fetchStatus, 2000);
     </script>
 
-    <script type="module">
-        alert("firebase module loaded"))
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
-        import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-messaging.js";
+    <script src="https://www.gstatic.com/firebasejs/12.12.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/12.12.1/firebase-messaging-compat.js"></script>
+
+    <script>
+        alert("Firebase script loaded");
 
         const firebaseConfig = {
             apiKey: "AIzaSyAYkr1pb6-C_UUSL_R64VEyHG9U91JItVo",
@@ -215,15 +216,18 @@
             measurementId: "G-1QYQQDPFMS"
         };
 
-        const app = initializeApp(firebaseConfig);
-        const messaging = getMessaging(app);
+        firebase.initializeApp(firebaseConfig);
+
+        const messaging = firebase.messaging();
 
         async function initFirebaseMessaging() {
             try {
+                alert("Firebase 등록 시작");
+
                 const permission = await Notification.requestPermission();
+                alert("알림 권한 상태: " + permission);
 
                 if (permission !== "granted") {
-                    console.log("알림 권한이 허용되지 않았습니다.");
                     return;
                 }
 
@@ -233,17 +237,14 @@
 
                 await navigator.serviceWorker.ready;
 
-                const token = await getToken(messaging, {
+                alert("Service Worker 등록 완료");
+
+                const token = await messaging.getToken({
                     vapidKey: "BJuea2XTDrPwzcpmGNLPBPl0cUHGu5mTEpoP6JebYYicKnCznthsyLumjwN6QV2Fe2NUtDmHUxgxz1gne349ksg",
                     serviceWorkerRegistration: registration
                 });
 
-                if (!token) {
-                    console.log("FCM 토큰을 가져오지 못했습니다.");
-                    return;
-                }
-
-                console.log("FCM Token:", token);
+                alert("FCM 토큰 생성됨");
 
                 await fetch("/save-token", {
                     method: "POST",
@@ -256,11 +257,12 @@
                 alert("Firebase 푸시 등록 완료");
 
             } catch (error) {
-                console.error("Firebase Push Error:", error);
+                alert("Firebase 오류: " + error.message);
+                console.error(error);
             }
         }
 
-        onMessage(messaging, (payload) => {
+        messaging.onMessage((payload) => {
             new Notification(payload.notification.title, {
                 body: payload.notification.body
             });
@@ -269,7 +271,6 @@
         window.addEventListener("load", () => {
             initFirebaseMessaging();
         });
-
     </script>
 </body>
 </html>
