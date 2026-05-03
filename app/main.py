@@ -4,6 +4,7 @@ import time
 import os
 from datetime import datetime
 from detector import detect_people
+from flask import send_from_directory
 
 app = Flask(__name__)
 
@@ -26,6 +27,8 @@ def save_capture(frame):
 def handle_person_detected(frame):
     global last_alert_time
 
+    global last_capture_file, last_capture_time
+
     current_time = time.time()
 
     if current_time - last_alert_time < ALERT_COOLDOWN:
@@ -34,6 +37,10 @@ def handle_person_detected(frame):
     last_alert_time = current_time
 
     filename = save_capture(frame)
+
+    last_capture_file = filename
+    last_capture_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
     print(f"[ALERT] Person detected! Saved: {filename}")
 
 
@@ -84,6 +91,18 @@ def video():
         mimetype="multipart/x-mixed-replace; boundary=frame"
     )
 
+
+@app.route("/status")
+def status():
+    return {
+        "last_capture": last_capture_file,
+        "time": last_capture_time
+    }
+
+
+@app.route('/captures/<path:filename>')
+def serve_capture(filename):
+    return send_from_directory('../captures', filename)
 
 if __name__ == "__main__":
     app.run(debug=True)

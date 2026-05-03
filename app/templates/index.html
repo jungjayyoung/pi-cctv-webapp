@@ -6,5 +6,25 @@
 <body>
     <h1>Live Camera</h1>
     <img src="{{ url_for('video') }}">
+
+    <h2>Last Detection</h2>
+    <p id="time">No detection yet</p>
+    <img id="capture" width="300">
 </body>
 </html>
+
+
+
+<script>
+async function fetchStatus() {
+    const res = await fetch("/status");
+    const data = await res.json();
+
+    if (data.last_capture) {
+        document.getElementById("capture").src = "/captures/" + data.last_capture.split("/").pop();
+        document.getElementById("time").innerText = data.time;
+    }
+}
+
+setInterval(fetchStatus, 2000);
+</script>
