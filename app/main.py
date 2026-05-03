@@ -1,10 +1,41 @@
 from flask import Flask, render_template, Response
 import cv2
+import time
+import os
+from datetime import datetime
 from detector import detect_people
 
 app = Flask(__name__)
 
 cap = cv2.VideoCapture(0)
+
+last_alert_time = 0
+ALERT_COOLDOWN = 10  # 10초에 한 번만 이벤트 발생
+
+
+def save_capture(frame):
+    os.makedirs("captures", exist_ok=True)
+
+    now = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"captures/person_{now}.jpg"
+
+    cv2.imwrite(filename, frame)
+    return filename
+
+
+def handle_person_detected(frame):
+    global last_alert_time
+
+    current_time = time.time()
+
+    if current_time - last_alert_time < ALERT_COOLDOWN:
+        return
+
+    last_alert_time = current_time
+
+    filename = save_capture(frame)
+    print(f"[ALERT] Person detected! Saved: {filename}")
+
 
 def generate_frames():
     while True:
@@ -29,6 +60,9 @@ def generate_frames():
                 2
             )
 
+        if len(people) > 0:
+            handle_person_detected(frame)
+
         _, buffer = cv2.imencode(".jpg", frame)
         frame = buffer.tobytes()
 
@@ -37,9 +71,11 @@ def generate_frames():
             b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n"
         )
 
+
 @app.route("/")
 def index():
     return render_template("index.html")
+
 
 @app.route("/video")
 def video():
@@ -47,6 +83,7 @@ def video():
         generate_frames(),
         mimetype="multipart/x-mixed-replace; boundary=frame"
     )
+
 
 if __name__ == "__main__":
     app.run(debug=True)
