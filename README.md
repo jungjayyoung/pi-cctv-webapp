@@ -17,6 +17,8 @@ YOLO 기반 사람 감지 + 웹 스트리밍 + Firebase 푸시 알림 + 접속 �
 ---
 
 ## 🏗️ 시스템 구조
+
+```bash
 [ Raspberry Pi ]
 ├─ Camera (USB)
 ├─ YOLO Detection
@@ -29,7 +31,7 @@ YOLO 기반 사람 감지 + 웹 스트리밍 + Firebase 푸시 알림 + 접속 �
 ├─ PC
 ├─ Mobile
 └─ Tablet
-
+```
 
 ---
 
@@ -87,6 +89,7 @@ cloudflared tunnel --url http://localhost:5000
 
 ## 📁 프로젝트 구조
 
+```bash
 pi-cctv-webapp/
 ├─ app/
 │  ├─ main.py
@@ -98,6 +101,7 @@ pi-cctv-webapp/
 ├─ logs/
 ├─ requirements.txt
 └─ README.md
+```
 
 ## 📊 로그 기능
 
