@@ -6,3 +6,4 @@ __pycache__/
 captures/
 firebase-service-account.json
 fcm_tokens.json
+logs/
