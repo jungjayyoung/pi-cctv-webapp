@@ -267,10 +267,7 @@
                 body: payload.notification.body
             });
         });
-
-        window.addEventListener("load", () => {
-            initFirebaseMessaging();
-        });
+        window.initFirebaseMessaging = initFirebaseMessaging;
     </script>
 </body>
 </html>
