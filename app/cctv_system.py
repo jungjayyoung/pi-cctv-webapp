@@ -3,7 +3,7 @@ import time
 import os
 from datetime import datetime
 
-from detector import detect_people
+from detector import detect_objects
 from firebase_notifier import send_push_notification
 
 
@@ -16,6 +16,11 @@ class CCTVSystem:
         capture_dir="captures"
     ):
         self.cap = cv2.VideoCapture(camera_index)
+
+        # 라즈베리파이 성능 최적화
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 360)
+        self.cap.set(cv2.CAP_PROP_FPS, 10)
 
         self.alert_cooldown = alert_cooldown
         self.stream_timeout = stream_timeout
@@ -32,6 +37,7 @@ class CCTVSystem:
 
         self.frame_count = 0
         self.last_people = []
+        self.last_dogs = []  # ⭐ NEW
 
         os.makedirs(self.capture_dir, exist_ok=True)
 
@@ -71,13 +77,7 @@ class CCTVSystem:
 
     def draw_people_boxes(self, frame, people):
         for x1, y1, x2, y2, confidence in people:
-            cv2.rectangle(
-                frame,
-                (x1, y1),
-                (x2, y2),
-                (0, 255, 0),
-                2
-            )
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
             label = f"Person {confidence:.2f}"
 
@@ -88,6 +88,22 @@ class CCTVSystem:
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.7,
                 (0, 255, 0),
+                2
+            )
+
+    def draw_dog_boxes(self, frame, dogs):
+        for x1, y1, x2, y2, confidence in dogs:
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
+
+            label = f"Dog {confidence:.2f}"
+
+            cv2.putText(
+                frame,
+                label,
+                (x1, y1 - 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (255, 0, 0),
                 2
             )
 
@@ -104,22 +120,27 @@ class CCTVSystem:
             if not success:
                 break
 
-            # 7프레임에 1번만 감지
             self.frame_count += 1
 
-            if self.frame_count % 7 == 0:
-                self.last_people = detect_people(frame)
-            else:
-                people = self.last_people
+            # 5프레임에 1번만 YOLO 감지
+            if self.frame_count % 5 == 0:
+                self.last_people, self.last_dogs = detect_objects(frame)
 
+            people = self.last_people
+            dogs = self.last_dogs
+
+            # 사람만 스트리밍/알림/캡처에 영향
             if len(people) > 0:
                 self.handle_person_detected(frame)
 
+            # 강아지는 박스만 표시
             self.draw_people_boxes(frame, people)
+            self.draw_dog_boxes(frame, dogs)
 
             if self.streaming_active:
-		#스트리밍용 해상도 축소
-                frame = cv2.resize(frame,(480,270))
+                # 스트리밍용 해상도 축소
+                frame = cv2.resize(frame, (480, 270))
+
                 _, buffer = cv2.imencode(".jpg", frame)
                 frame_bytes = buffer.tobytes()
 
